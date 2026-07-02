@@ -25,7 +25,7 @@ import {
     AuthUser, 
     OAuthProvider
 } from '../../types/auth-types';
-import { mapUserResponse, validateRedirectUrl } from '../../utils/authUtils';
+import { mapUserResponse, validateRedirectUrl, enforceAllowedEmail } from '../../utils/authUtils';
 import { createLogger } from '../../logger';
 import { validateEmail, validatePassword } from '../../utils/validationUtils';
 import { extractRequestMetadata } from '../../utils/authUtils';
@@ -73,6 +73,9 @@ export class AuthService extends BaseService {
      */
     async register(data: RegistrationData, request: Request): Promise<AuthResult> {
         try {
+            // Deployment-level admission gate (ALLOWED_EMAIL)
+            enforceAllowedEmail(this.env, data.email, 'register');
+
             // Validate email format using centralized utility
             const emailValidation = validateEmail(data.email);
             if (!emailValidation.valid) {
@@ -183,6 +186,9 @@ export class AuthService extends BaseService {
      */
     async login(credentials: LoginCredentials, request: Request): Promise<AuthResult> {
         try {
+            // Deployment-level admission gate (ALLOWED_EMAIL)
+            enforceAllowedEmail(this.env, credentials.email, 'login');
+
             // Find user
             const user = await this.database
                 .select()
@@ -487,7 +493,11 @@ export class AuthService extends BaseService {
             
             // Get user info
             const oauthUserInfo = await oauthProvider.getUserInfo(tokens.accessToken);
-            
+
+            // Deployment-level admission gate (ALLOWED_EMAIL). Enforced BEFORE any
+            // user row or session is created so a rejected email never gets admitted.
+            enforceAllowedEmail(this.env, oauthUserInfo.email, 'oauth');
+
             // Find or create user
             const user = await this.findOrCreateOAuthUser(provider, oauthUserInfo);
             
@@ -881,6 +891,9 @@ export class AuthService extends BaseService {
      */
     async verifyEmailWithOtp(email: string, otp: string, request: Request): Promise<AuthResult> {
         try {
+            // Deployment-level admission gate (ALLOWED_EMAIL)
+            enforceAllowedEmail(this.env, email, 'login');
+
             // Find valid OTP
             const storedOtp = await this.database
                 .select()

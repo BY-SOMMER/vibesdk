@@ -5,8 +5,33 @@
 import type {  AuthUser } from '../types/auth-types';
 import type { User } from '../database/schema';
 import { createLogger } from '../logger';
+import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 
 const logger = createLogger('AuthUtils');
+
+/**
+ * Enforce the deployment-level email allowlist (ALLOWED_EMAIL).
+ *
+ * Centralized admission gate: every authentication path that admits a user
+ * (register, login, OAuth callback, email verification, and any future path)
+ * must call this before creating a user or issuing a session. Comparison is
+ * case-insensitive on both sides.
+ */
+export function enforceAllowedEmail(
+	env: Env,
+	email: string,
+	action: 'register' | 'login' | 'oauth',
+): void {
+	const allowedEmail: string = env.ALLOWED_EMAIL;
+	if (!allowedEmail) return;
+	if (email.toLowerCase() !== allowedEmail.toLowerCase()) {
+		throw new SecurityError(
+			SecurityErrorType.UNAUTHORIZED,
+			`Email Whitelisting is enabled. Please use the allowed email to ${action}.`,
+			403,
+		);
+	}
+}
 
 /**
  * Extract sessionId from cookie
