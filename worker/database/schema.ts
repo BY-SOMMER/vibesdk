@@ -169,6 +169,11 @@ export const apps = sqliteTable('apps', {
     // Versioning (for future support)
     version: integer('version').default(1),
     parentAppId: text('parent_app_id'), // If forked from another app
+
+    // Preview-token revocation epoch. Incremented on every visibility change so
+    // outstanding space-preview tokens (which embed the value at mint) are
+    // rejected after a public->private toggle.
+    previewVersion: integer('preview_version').notNull().default(0),
     
     // Screenshot Information
     screenshotUrl: text('screenshot_url'), // URL to saved screenshot image

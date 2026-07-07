@@ -2,8 +2,10 @@ import {
 	buildPreviewCookie,
 	readPreviewCookie,
 	verifySpacePreviewToken,
+	type SpacePreviewClaims,
 } from '../../utils/spacePreviewToken';
 import { isSeparatePreviewDomain } from '../../utils/urls';
+import { AppService } from '../../database/services/AppService';
 
 const SPACE_PREVIEW_ROUTE_PATTERN = /^\/space\/([^/]+)\/preview\/([^/]+)(?:\/.*)?$/;
 
@@ -76,9 +78,25 @@ function isWebSocketResponse(response: Response): boolean {
 }
 
 /**
+ * Confirm the token's embedded `previewVersion` still matches the app's current
+ * value. A visibility toggle bumps `previewVersion` (see AppService), so a token
+ * minted while public is rejected after a public->private toggle. Read from the
+ * primary DB (no cache) for ~1s revocation. `spaceName === appId`.
+ */
+async function isPreviewVersionCurrent(
+	env: Env,
+	spaceName: string,
+	claims: SpacePreviewClaims,
+): Promise<boolean> {
+	const current = (await new AppService(env).getPreviewVersion(spaceName)) ?? 0;
+	return current === claims.previewVersion;
+}
+
+/**
  * Unified, token-only preview auth. A request is authorized if it carries a
  * valid path/branch-scoped preview cookie, or a valid `?t=` token (which then
- * bootstraps the cookie). No session cookie / DB ownership check (claims-only).
+ * bootstraps the cookie). No session cookie / DB ownership check (claims-only),
+ * but the token's `previewVersion` must still match the app's current epoch.
  */
 export async function handleSpacePreview(
 	request: Request,
@@ -94,7 +112,7 @@ export async function handleSpacePreview(
 	const cookieToken = readPreviewCookie(request);
 	if (cookieToken) {
 		const claims = await verifySpacePreviewToken(env, cookieToken, spaceName, branch);
-		if (claims) {
+		if (claims && (await isPreviewVersionCurrent(env, spaceName, claims))) {
 			return forwardToSpacePreview(request, env, spaceName);
 		}
 	}
@@ -103,7 +121,7 @@ export async function handleSpacePreview(
 	const queryToken = url.searchParams.get('t') ?? '';
 	if (queryToken) {
 		const claims = await verifySpacePreviewToken(env, queryToken, spaceName, branch);
-		if (claims) {
+		if (claims && (await isPreviewVersionCurrent(env, spaceName, claims))) {
 			const response = await forwardToSpacePreview(request, env, spaceName);
 			if (isWebSocketResponse(response)) {
 				return response;
