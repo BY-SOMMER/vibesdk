@@ -202,6 +202,7 @@
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
         "ENABLE_READ_REPLICAS": "true",
         "ENABLE_EMAIL_AUTH": "true",
+        "ENABLE_CLOUDFLARE_LIMITS": "true",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
         "PLATFORM_CAPABILITIES": {
             "features": {

@@ -198,6 +198,7 @@
         "DISPATCH_NAMESPACE": "vibesdk-staging-namespace",
         "ENABLE_READ_REPLICAS": "true",
         "ENABLE_EMAIL_AUTH": "true",
+        "ENABLE_CLOUDFLARE_LIMITS": "false",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
         "PLATFORM_CAPABILITIES": {
             "features": {
